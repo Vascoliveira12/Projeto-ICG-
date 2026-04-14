@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>Rover marciano</title>
+    <style>
+        body { margin: 0px}
+    </style>
+
+    <script type="importmap">
+        {
+          "imports": {
+            "three": "https://threejs.org/build/three.module.js",
+            "three/addons/": "https://threejs.org/examples/jsm/"
+          }
+        }
+      </script>
+
+    <script type="module">
+
+        import * as THREE from "three";
+
+        import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+        // To store the scene graph, and elements usefull to rendering the scene
+        const sceneElements = {
+            sceneGraph: null,
+            camera: null,
+            povCamera: null,
+            activeCamera: null,
+            control: null,  // NEW
+            renderer: null,
+            sunLight: null,
+            sunOrbitRadius: 30,
+            sunOrbitHeight: 18,
+            sunOrbitSpeed: 0.00015,
+            rover: null,
+        };
+
+        const terrainData = {
+            size: 200,
+            segments: 100,
+            heights: [],
+        };
+
+        const helper = {
+
+            initEmptyScene: function (sceneElements) {
+
+                // ************************** //
+                // Create the 3D scene
+                // ************************** //
+                sceneElements.sceneGraph = new THREE.Scene();
+
+                // ************************** //
+                // Add camera
+                // ************************** //
+                const width = window.innerWidth;
+                const height = window.innerHeight;
+                const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 500);
+                sceneElements.camera = camera;
+                sceneElements.activeCamera = camera;
+                camera.position.set(0, 5, 5);
+                camera.lookAt(0, 0, 0);
+
+                const povCamera = new THREE.PerspectiveCamera(75, width / height, 0.1, 500);
+                sceneElements.povCamera = povCamera;
+                povCamera.position.set(0, 1.2, 0.6);
+
+                // ************************** //
+                // Illumination
+                // ************************** //
+
+                // ************************** //
+                // Add ambient light
+                // ************************** //
+                const ambientLight = new THREE.AmbientLight(0x404040, 1.5);
+                sceneElements.sceneGraph.add(ambientLight);
+
+                // ***************************** //
+                // Add spotlight (with shadows)
+                // ***************************** //
+                const spotLight1 = new THREE.SpotLight(0xffaa88, 60);
+                spotLight1.decay = 1;
+                spotLight1.position.set(-5, 8, 0);
+                sceneElements.sceneGraph.add(spotLight1);
+
+                // Setup shadow properties for the spotlight
+                spotLight1.castShadow = true;
+                spotLight1.shadow.mapSize.width = 2048;
+                spotLight1.shadow.mapSize.height = 2048;
+
+                // Give a name to the spot light
+                spotLight1.name = "light 1";
+
+                // Keep the spotlight aimed at the center to mimic sunlight over the scene
+                sceneElements.sceneGraph.add(spotLight1.target);
+                spotLight1.target.position.set(0, 0, 0);
+                sceneElements.sunLight = spotLight1;
+
+                
+
+                // *********************************** //
+                // Create renderer (with shadow map)
+                // *********************************** //
+                const renderer = new THREE.WebGLRenderer({ antialias: true });
+                sceneElements.renderer = renderer;
+                renderer.setPixelRatio(window.devicePixelRatio);
+                renderer.setClearColor('rgb(255, 255, 150)', 1.0);
+                renderer.setSize(width, height);
+
+                // Setup shadowMap property
+                renderer.shadowMap.enabled = true;
+                renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+                // **************************************** //
+                // Add the rendered image in the HTML DOM
+                // **************************************** //
+                const htmlElement = document.querySelector("#Tag3DScene");
+                htmlElement.appendChild(renderer.domElement);
+
+                // ************************** //
+                // NEW --- Control for the camera
+                // ************************** //
+                sceneElements.control = new OrbitControls(camera, renderer.domElement);
+                sceneElements.control.screenSpacePanning = true;
+
+            },
+
+            render: function (sceneElements) {
+                sceneElements.renderer.render(sceneElements.sceneGraph, sceneElements.activeCamera);
+            },
+        };
+
+        const scene = {
+            getTerrainHeightAt: function (x, z) {
+                const grid = terrainData.segments;
+                const side = grid + 1;
+                const halfSize = terrainData.size / 2;
+                const step = terrainData.size / grid;
+
+                const clampedX = THREE.MathUtils.clamp(x, -halfSize, halfSize);
+                const clampedZ = THREE.MathUtils.clamp(z, -halfSize, halfSize);
+
+                const fx = (clampedX + halfSize) / step;
+                const fz = (clampedZ + halfSize) / step;
+
+                const x0 = Math.floor(fx);
+                const z0 = Math.floor(fz);
+                const x1 = Math.min(grid, x0 + 1);
+                const z1 = Math.min(grid, z0 + 1);
+
+                const tx = fx - x0;
+                const tz = fz - z0;
+
+                const h00 = terrainData.heights[z0 * side + x0] ?? 0;
+                const h10 = terrainData.heights[z0 * side + x1] ?? 0;
+                const h01 = terrainData.heights[z1 * side + x0] ?? 0;
+                const h11 = terrainData.heights[z1 * side + x1] ?? 0;
+
+                const h0 = h00 * (1 - tx) + h10 * tx;
+                const h1 = h01 * (1 - tx) + h11 * tx;
+                return h0 * (1 - tz) + h1 * tz;
+            },
+
+            load3DObjects: function (sceneGraph) {
+                // Figuras Geométricas
+                const terrenoGeometry = new THREE.PlaneGeometry(terrainData.size, terrainData.size, terrainData.segments, terrainData.segments);
+                terrenoGeometry.rotateX(-Math.PI / 2);
+                for(let i = 0; i < terrenoGeometry.attributes.position.count; i++) {
+                    const y = Math.random() * 2; // Altura aleatória para criar um terreno acidentado
+                    terrenoGeometry.attributes.position.setY(i, y);
+                    terrainData.heights[i] = y;
+                }
+                terrenoGeometry.computeVertexNormals();
+
+                const terrenoMaterial = new THREE.MeshStandardMaterial({ color: 'rgb(150, 75, 0)', side: THREE.DoubleSide, flatShading: true, roughness: 1, metalness: 0 });
+                const terreno = new THREE.Mesh(terrenoGeometry, terrenoMaterial);
+                terreno.receiveShadow = true; // O terreno recebe sombras
+                sceneGraph.add(terreno);
+
+
+
+
+                const cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
+                
+                const cubeMaterial = new THREE.MeshPhongMaterial({ color: `hsl(${179}, 100%, 68%)` });
+                const cubeObject = new THREE.Mesh(cubeGeometry, cubeMaterial);
+                //sombra
+                cubeObject.castShadow = true;
+                cubeObject.receiveShadow = true;
+                //name
+                cubeObject.name = "rover";
+                // position
+                cubeObject.position.set(0, 0, -2);
+                const minRoverY = scene.getTerrainHeightAt(cubeObject.position.x, cubeObject.position.z) + 0.5;
+                cubeObject.position.y = minRoverY;
+                sceneElements.rover = cubeObject;
+                sceneGraph.add(cubeObject);
+
+            },
+
+            
+
+            
+        };
+
+        // ANIMATION
+
+        // Displacement values
+        var delta = 0.1;
+        var dispX = 0.2, dispZ = 0.2;
+
+        //To keep track of the keyboard - WASD
+        var keyD = false, keyA = false, keyS = false, keyW = false;
+
+
+        function computeFrame(time) {
+
+            if (sceneElements.sunLight) {
+                const angle = time * sceneElements.sunOrbitSpeed;
+                sceneElements.sunLight.position.x = Math.cos(angle) * sceneElements.sunOrbitRadius;
+                sceneElements.sunLight.position.z = Math.sin(angle) * sceneElements.sunOrbitRadius;
+                sceneElements.sunLight.position.y = sceneElements.sunOrbitHeight + Math.sin(angle * 0.6) * 6;
+            }
+
+            if (sceneElements.control) {
+                sceneElements.control.update();
+            }
+
+            // CONTROLING THE CUBE WITH THE KEYBOARD
+
+                const cube = sceneElements.sceneGraph.getObjectByName("rover");
+
+                if (keyD && cube.position.x < 50) {
+                    cube.translateX(dispX);
+                }
+                if (keyW && cube.position.z > -50) {
+                    cube.translateZ(-dispZ);
+                }
+                if (keyA && cube.position.x > -50) {
+                    cube.translateX(-dispX);
+                }
+                if (keyS && cube.position.z < 50) {
+                    cube.translateZ(dispZ);
+                }
+
+                // Keep the cube resting on the terrain surface at its current X/Z
+                cube.position.y = scene.getTerrainHeightAt(cube.position.x, cube.position.z) + 0.5;
+
+                if (sceneElements.povCamera) {
+                    sceneElements.povCamera.position.set(
+                        cube.position.x,
+                        cube.position.y + 0.6,
+                        cube.position.z + 0.3
+                    );
+                    sceneElements.povCamera.lookAt(
+                        cube.position.x,
+                        cube.position.y + 0.6,
+                        cube.position.z - 2
+                    );
+                }
+
+            // Rendering
+            helper.render(sceneElements);
+
+            // Call for the next frame
+            // Uncomment to allow animation
+            requestAnimationFrame(computeFrame);
+        }
+
+        // Call functions:
+        //  1. Initialize the empty scene
+        //  2. Add elements within the scene
+        //  3. Animate
+
+        function init() {
+            helper.initEmptyScene(sceneElements);
+            scene.load3DObjects(sceneElements.sceneGraph);
+            requestAnimationFrame(computeFrame);
+        }
+
+        // HANDLING EVENTS
+
+        window.addEventListener('resize', resizeWindow);
+
+        document.addEventListener('keydown', onDocumentKeyDown, false);
+        document.addEventListener('keyup', onDocumentKeyUp, false);
+
+        function onDocumentKeyDown(event) {
+            switch (event.keyCode) {
+                case 68: //d
+                    keyD = true;
+                    break;
+                case 83: //s
+                    keyS = true;
+                    break;
+                case 65: //a
+                    keyA = true;
+                    break;
+                case 87: //w
+                    keyW = true;
+                    break;
+                case 80: //p
+                    if (!event.repeat) {
+                        toggleCamera();
+                    }
+                    break;
+            }
+        }
+
+        function onDocumentKeyUp(event) {
+            switch (event.keyCode) {
+                case 68: //d
+                    keyD = false;
+                    break;
+                case 83: //s
+                    keyS = false;
+                    break;
+                case 65: //a
+                    keyA = false;
+                    break;
+                case 87: //w
+                    keyW = false;
+                    break;
+            }
+        }
+
+        function toggleCamera() {
+            if (sceneElements.activeCamera === sceneElements.camera) {
+                sceneElements.activeCamera = sceneElements.povCamera;
+                if (sceneElements.control) {
+                    sceneElements.control.enabled = false;
+                }
+            } else {
+                sceneElements.activeCamera = sceneElements.camera;
+                if (sceneElements.control) {
+                    sceneElements.control.enabled = true;
+                }
+            }
+        }
+
+        // Update render image size and camera aspect when the window is resized
+        function resizeWindow(eventParam) {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+
+            sceneElements.camera.aspect = width / height;
+            sceneElements.camera.updateProjectionMatrix();
+
+            if (sceneElements.povCamera) {
+                sceneElements.povCamera.aspect = width / height;
+                sceneElements.povCamera.updateProjectionMatrix();
+            }
+
+            sceneElements.renderer.setSize(width, height);
+
+            // Comment when doing animation
+            computeFrame(sceneElements);
+        }
+
+        // STARTING
+
+        init();
+
+ 
+
+    </script>
+</head>
+<body>
+    <div id="Tag3DScene"></div>
+</body>
+</html>
