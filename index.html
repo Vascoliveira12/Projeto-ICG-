@@ -47,7 +47,7 @@
             povCamera: null,
             followCamera: null,
             activeCamera: null,
-            control: null,  // NEW
+            control: null,
             renderer: null,
             sunLight: null,
             sunOrbitRadius: 30,
@@ -104,7 +104,7 @@
                 // ************************** //
                 // Add ambient light
                 // ************************** //
-                const ambientLight = new THREE.AmbientLight(0x404040, 1.5);
+                const ambientLight = new THREE.AmbientLight(0xffffff, 1.5);
                 sceneElements.sceneGraph.add(ambientLight);
 
                 // ***************************** //
@@ -150,7 +150,7 @@
                 htmlElement.appendChild(renderer.domElement);
 
                 // ************************** //
-                // NEW --- Control for the camera
+                // Control for the camera
                 // ************************** //
                 sceneElements.control = new OrbitControls(camera, renderer.domElement);
                 sceneElements.control.screenSpacePanning = true;
@@ -204,15 +204,20 @@
                 }
                 terrenoGeometry.computeVertexNormals();
 
-                const terrenoMaterial = new THREE.MeshStandardMaterial({ color: 'rgb(150, 75, 0)', side: THREE.DoubleSide, flatShading: true, roughness: 1, metalness: 0 });
+                const terrenoMaterial = new THREE.MeshStandardMaterial({ 
+                    color: 'rgb(150, 75, 0)', 
+                    roughness: 1.0,
+                    side: THREE.DoubleSide
+                });
                 const terreno = new THREE.Mesh(terrenoGeometry, terrenoMaterial);
                 terreno.receiveShadow = true; // O terreno recebe sombras
                 sceneGraph.add(terreno);
 
 
 
-
+                // Rover
                 const cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
+                const grupo = new THREE.Group();
                 
                 const cubeMaterial = new THREE.MeshPhongMaterial({ color: `hsl(${179}, 100%, 68%)` });
                 const cubeObject = new THREE.Mesh(cubeGeometry, cubeMaterial);
@@ -225,8 +230,20 @@
                 cubeObject.position.set(0, 0, -2);
                 const minRoverY = scene.getTerrainHeightAt(cubeObject.position.x, cubeObject.position.z) + 0.5;
                 cubeObject.position.y = minRoverY;
-                sceneElements.rover = cubeObject;
-                sceneGraph.add(cubeObject);
+                grupo.add(cubeObject);
+
+                const sphereGeometry = new THREE.SphereGeometry(0.3, 16, 16);
+                const sphereMaterial = new THREE.MeshPhongMaterial({ color: `hsl(${179}, 100%, 68%)` });
+                const sphereObject = new THREE.Mesh(sphereGeometry, sphereMaterial);
+                sphereObject.castShadow = true;
+                sphereObject.receiveShadow = true;
+                sphereObject.position.set(0, 0, -2);
+                const minSphereY = scene.getTerrainHeightAt(sphereObject.position.x, sphereObject.position.z) + 0.5;
+                sphereObject.position.y = minSphereY;
+                grupo.add(sphereObject);
+
+                sceneGraph.add(grupo);
+                sceneElements.rover = grupo;
 
                 const mineralGeometry = new THREE.IcosahedronGeometry(0.22, 0);
                 const mineralMaterial = new THREE.MeshStandardMaterial({
