@@ -23,6 +23,21 @@
             z-index: 10;
             user-select: none;
         }
+
+        #batteryCounter {
+            position: fixed;
+            top: 50px; /* Fica por baixo do contador de minerais */
+            left: 12px;
+            padding: 8px 12px;
+            border-radius: 8px;
+            background: rgba(20, 20, 20, 0.55);
+            color: #44ff44; /* Verde para começar */
+            font-family: sans-serif;
+            font-size: 14px;
+            z-index: 10;
+            user-select: none;
+            transition: color 0.3s;
+        }
     </style>
 
     <script type="importmap">
@@ -50,10 +65,11 @@
             control: null,
             renderer: null,
             sunLight: null,
-            sunOrbitRadius: 30,
-            sunOrbitHeight: 18,
-            sunOrbitSpeed: 0.00015,
+            ambientLight: null,
             rover: null,
+            headlights: [], // Guarda os faróis
+            headlightsOn: false, // Estado das luzes
+            battery: 100, // Começa com 100%
             minerals: [],
             mineralsCollected: 0,
             cameraMode: 0,
@@ -87,7 +103,7 @@
                 const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 500);
                 sceneElements.camera = camera;
                 sceneElements.activeCamera = camera;
-                camera.position.set(0, 5, 5);
+                camera.position.set(0, 15, 15);
                 camera.lookAt(0, 0, 0);
 
                 const povCamera = new THREE.PerspectiveCamera(75, width / height, 0.1, 500);
@@ -102,32 +118,35 @@
                 // ************************** //
 
                 // ************************** //
-                // Add ambient light
+                // Illumination (Dia/Noite)
                 // ************************** //
-                const ambientLight = new THREE.AmbientLight(0xffffff, 1.5);
+
+                // Luz Ambiente
+                const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
                 sceneElements.sceneGraph.add(ambientLight);
+                sceneElements.ambientLight = ambientLight;
 
-                // ***************************** //
-                // Add spotlight (with shadows)
-                // ***************************** //
-                const spotLight1 = new THREE.SpotLight(0xffaa88, 60);
-                spotLight1.decay = 1;
-                spotLight1.position.set(-5, 8, 0);
-                sceneElements.sceneGraph.add(spotLight1);
+                // Luz Solar (Directional Light em vez de SpotLight)
+                const sunLight = new THREE.DirectionalLight(0xffaa88, 3);
+                sunLight.position.set(100, 100, 0); // Posição inicial
+                sceneElements.sceneGraph.add(sunLight);
 
-                // Setup shadow properties for the spotlight
-                spotLight1.castShadow = true;
-                spotLight1.shadow.mapSize.width = 2048;
-                spotLight1.shadow.mapSize.height = 2048;
+                // Configurar o mapa de sombras do Sol para abranger todo o terreno
+                sunLight.castShadow = true;
+                const d = terrainData.size / 2; // O tamanho do mapa de sombras
+                sunLight.shadow.camera.left = -d;
+                sunLight.shadow.camera.right = d;
+                sunLight.shadow.camera.top = d;
+                sunLight.shadow.camera.bottom = -d;
+                sunLight.shadow.camera.near = 0.5;
+                sunLight.shadow.camera.far = 500;
+                
+                // Resolução da sombra
+                sunLight.shadow.mapSize.width = 2048;
+                sunLight.shadow.mapSize.height = 2048;
 
-                // Give a name to the spot light
-                spotLight1.name = "light 1";
-
-                // Keep the spotlight aimed at the center to mimic sunlight over the scene
-                sceneElements.sceneGraph.add(spotLight1.target);
-                spotLight1.target.position.set(0, 0, 0);
-                sceneElements.sunLight = spotLight1;
-
+                sceneElements.sunLight = sunLight;
+                sceneElements.sunOrbitSpeed = 0.00005; // Ajusta este valor para dias mais rápidos ou lentos
                 
 
                 // *********************************** //
@@ -215,32 +234,135 @@
 
 
 
-                // Rover
-                const cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
+                // ************************** //
+                // ROVER MARCIANO
+                // ************************** //
                 const grupo = new THREE.Group();
-                
-                const cubeMaterial = new THREE.MeshPhongMaterial({ color: `hsl(${179}, 100%, 68%)` });
-                const cubeObject = new THREE.Mesh(cubeGeometry, cubeMaterial);
-                //sombra
-                cubeObject.castShadow = true;
-                cubeObject.receiveShadow = true;
-                //name
-                cubeObject.name = "rover";
-                // position
-                cubeObject.position.set(0, 0, -2);
-                const minRoverY = scene.getTerrainHeightAt(cubeObject.position.x, cubeObject.position.z) + 0.5;
-                cubeObject.position.y = minRoverY;
-                grupo.add(cubeObject);
 
-                const sphereGeometry = new THREE.SphereGeometry(0.3, 16, 16);
-                const sphereMaterial = new THREE.MeshPhongMaterial({ color: `hsl(${179}, 100%, 68%)` });
-                const sphereObject = new THREE.Mesh(sphereGeometry, sphereMaterial);
-                sphereObject.castShadow = true;
-                sphereObject.receiveShadow = true;
-                sphereObject.position.set(0, 0, -2);
-                const minSphereY = scene.getTerrainHeightAt(sphereObject.position.x, sphereObject.position.z) + 0.5;
-                sphereObject.position.y = minSphereY;
-                grupo.add(sphereObject);
+                // Paleta de Materiais do Rover
+                const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0xeeeeee, metalness: 0.4, roughness: 0.6 });
+                const darkMetalMaterial = new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.7, roughness: 0.3 });
+                const wheelMaterial = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.9 });
+                const solarMaterial = new THREE.MeshStandardMaterial({ color: 0x112244, metalness: 0.9, roughness: 0.2 });
+                const cameraLensMaterial = new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.1 });
+                const goldMaterial = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.8, roughness: 0.3 });
+
+                // 1. Chassi Central
+                const chassiGeometry = new THREE.BoxGeometry(1.2, 0.6, 2);
+                const chassi = new THREE.Mesh(chassiGeometry, bodyMaterial);
+                chassi.position.y = 0.7; // Altura do chassi em relação ao chão
+                chassi.castShadow = true;
+                chassi.receiveShadow = true;
+                grupo.add(chassi);
+
+                // 2. Painel Solar (Topo)
+                const panelGeometry = new THREE.BoxGeometry(1.0, 0.05, 1.4);
+                const panel = new THREE.Mesh(panelGeometry, solarMaterial);
+                panel.position.set(0, 1.025, -0.1); // Assente no chassi
+                panel.castShadow = true;
+                grupo.add(panel);
+
+                // 3. Rodas (6 rodas independentes estilo suspensão rocker-bogie)
+                const wheelGeometry = new THREE.CylinderGeometry(0.3, 0.3, 0.25, 32);
+                wheelGeometry.rotateZ(Math.PI / 2); // Deitar o cilindro para ficar com formato de roda
+
+                const wheelPositions = [
+                    [-0.75, 0.3, 0.8],  // Trás Esquerda
+                    [ 0.75, 0.3, 0.8],  // Trás Direita
+                    [-0.75, 0.3, 0],    // Meio Esquerda
+                    [ 0.75, 0.3, 0],    // Meio Direita
+                    [-0.75, 0.3, -0.8], // Frente Esquerda
+                    [ 0.75, 0.3, -0.8]  // Frente Direita
+                ];
+
+                // Guardar as rodas num array para as podermos animar a girar
+                sceneElements.roverWheels = []; 
+
+                wheelPositions.forEach(pos => {
+                    const wheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
+                    wheel.position.set(...pos);
+                    wheel.castShadow = true;
+                    wheel.receiveShadow = true;
+                    grupo.add(wheel);
+                    sceneElements.roverWheels.push(wheel);
+                });
+
+                // Suspensão (Hastes que ligam as rodas ao chassi)
+                wheelPositions.forEach(pos => {
+                    const suspGeometry = new THREE.CylinderGeometry(0.05, 0.05, 0.4);
+                    const susp = new THREE.Mesh(suspGeometry, darkMetalMaterial);
+                    // Ligeiramente inclinadas para dentro
+                    susp.position.set(pos[0] > 0 ? pos[0] - 0.1 : pos[0] + 0.1, 0.5, pos[2]);
+                    susp.castShadow = true;
+                    grupo.add(susp);
+                });
+
+                // 4. Mastro e Cabeça da Câmara
+                const mastGeometry = new THREE.CylinderGeometry(0.06, 0.06, 0.8);
+                const mast = new THREE.Mesh(mastGeometry, bodyMaterial);
+                mast.position.set(0.4, 1.4, -0.8); // Descentrado na frente
+                mast.castShadow = true;
+                grupo.add(mast);
+
+                const headGroup = new THREE.Group();
+                headGroup.position.set(0.4, 1.8, -0.8); // Topo do mastro
+
+                const headBox = new THREE.BoxGeometry(0.4, 0.2, 0.25);
+                const headMesh = new THREE.Mesh(headBox, bodyMaterial);
+                headMesh.castShadow = true;
+                headGroup.add(headMesh);
+
+                // Lentes (Olhos) da câmara
+                const lensGeo = new THREE.CylinderGeometry(0.05, 0.05, 0.05, 16);
+                lensGeo.rotateX(Math.PI / 2); // Apontar para a frente
+                
+                const lens1 = new THREE.Mesh(lensGeo, cameraLensMaterial);
+                lens1.position.set(-0.1, 0, -0.13);
+                headGroup.add(lens1);
+                
+                const lens2 = new THREE.Mesh(lensGeo, cameraLensMaterial);
+                lens2.position.set(0.1, 0, -0.13);
+                headGroup.add(lens2);
+
+                grupo.add(headGroup);
+
+                // 5. Gerador Termoelétrico (RTG) na Traseira - Detalhe Dourado
+                const rtgGeo = new THREE.CylinderGeometry(0.25, 0.25, 0.5, 16);
+                rtgGeo.rotateZ(Math.PI / 2);
+                const rtg = new THREE.Mesh(rtgGeo, goldMaterial);
+                rtg.position.set(0, 0.7, 1.1);
+                rtg.castShadow = true;
+                grupo.add(rtg);
+
+                // Posicionamento Inicial
+                grupo.position.set(0, 0, -2);
+                
+                // NOTA: Como o ponto mais baixo da roda (raio 0.3) está no y=0 do grupo, 
+                // já não precisamos de somar um offset ao encostar o Rover ao terreno.
+                grupo.position.y = scene.getTerrainHeightAt(grupo.position.x, grupo.position.z);
+
+                // 6. Faróis (Headlights)
+                const createHeadlight = (xPosition) => {
+                    // Intensidade 0 para começar desligado
+                    const spotLight = new THREE.SpotLight(0xffffee, 0); 
+                    spotLight.position.set(xPosition, 1.0, -1); // Na frente do rover
+                    spotLight.angle = Math.PI / 5; // Abertura do feixe
+                    spotLight.penumbra = 0.5; // Bordos suaves
+                    spotLight.distance = 60; // Distância que a luz alcança
+                    spotLight.castShadow = true;
+
+                    // O 'target' define para onde a luz aponta (para a frente do rover)
+                    const targetObj = new THREE.Object3D();
+                    targetObj.position.set(xPosition, 0.5, -5); 
+                    grupo.add(targetObj);
+                    spotLight.target = targetObj;
+
+                    grupo.add(spotLight);
+                    sceneElements.headlights.push(spotLight);
+                };
+
+                createHeadlight(-0.4); // Farol Esquerdo
+                createHeadlight(0.4);  // Farol Direito
 
                 sceneGraph.add(grupo);
                 sceneElements.rover = grupo;
@@ -289,57 +411,129 @@
 
         function computeFrame(time) {
 
+            // ==========================================
+            // CICLO DIA / NOITE
+            // ==========================================
             if (sceneElements.sunLight) {
                 const angle = time * sceneElements.sunOrbitSpeed;
-                sceneElements.sunLight.position.x = Math.cos(angle) * sceneElements.sunOrbitRadius;
-                sceneElements.sunLight.position.z = Math.sin(angle) * sceneElements.sunOrbitRadius;
-                sceneElements.sunLight.position.y = sceneElements.sunOrbitHeight + Math.sin(angle * 0.6) * 6;
+                const radius = 150; // Distância do sol ao centro do mapa
+
+                // 1. Calcular a órbita num arco (nasce, sobe, põe-se)
+                sceneElements.sunLight.position.x = Math.cos(angle) * radius;
+                sceneElements.sunLight.position.y = Math.sin(angle) * radius;
+                // Um ligeiro desvio no Z para as sombras terem um ângulo interessante
+                sceneElements.sunLight.position.z = Math.cos(angle) * 50; 
+
+                // 2. Transições de intensidade baseadas na altura do sol
+                // heightFactor vai de 0 (sol no horizonte/abaixo) a 1 (sol no pico do meio-dia)
+                const heightFactor = Math.max(0, sceneElements.sunLight.position.y / radius);
+
+                // O sol atinge força máxima ao meio-dia, desliga-se de noite
+                sceneElements.sunLight.intensity = heightFactor * 4.0;
+
+                // A luz ambiente escurece de noite (mas nunca fica a zero para poderes ver algo)
+                if (sceneElements.ambientLight) {
+                    sceneElements.ambientLight.intensity = 0.1 + (heightFactor * 0.7);
+                }
+
+                // 3. Mudar a cor do céu (fundo) de acordo com a hora
+                const dayColor = new THREE.Color('rgb(255, 200, 150)'); // Céu marciano de dia
+                const nightColor = new THREE.Color('rgb(5, 5, 10)');    // Noite escura
+                const currentSkyColor = nightColor.clone().lerp(dayColor, heightFactor);
+                
+                sceneElements.renderer.setClearColor(currentSkyColor, 1.0);
             }
 
             if (sceneElements.control) {
                 sceneElements.control.update();
             }
 
-            // CONTROLING THE CUBE WITH THE KEYBOARD
+            // CONTROLING THE ROVER WITH THE KEYBOARD
+            const cube = sceneElements.rover;
+            const rotSpeed = 0.04; // Velocidade a que o rover vira (podes ajustar)
 
-                const cube = sceneElements.sceneGraph.getObjectByName("rover");
 
-                if (keyD && cube.position.x < 50) {
-                    cube.translateX(dispX);
-                }
-                if (keyW && cube.position.z > -50) {
+
+            // 2. Movimento (Avançar e Recuar na direção para onde está virado)
+            if (keyW) {
+                cube.translateZ(-dispZ);
+                if (keyA) {
                     cube.translateZ(-dispZ);
-                }
-                if (keyA && cube.position.x > -50) {
-                    cube.translateX(-dispX);
-                }
-                if (keyS && cube.position.z < 50) {
-                    cube.translateZ(dispZ);
+                    cube.rotation.y += rotSpeed; // Vira à esquerda
                 }
 
-                // Keep the cube resting on the terrain surface at its current X/Z
-                cube.position.y = scene.getTerrainHeightAt(cube.position.x, cube.position.z) + 0.5;
+                if (keyD) {
+                    cube.translateZ(-dispZ);
+                    cube.rotation.y -= rotSpeed; // Vira à direita
+                }
+            }
+            if (keyS) {
+                cube.translateZ(dispZ);
+                if (keyD) {
+                    cube.translateZ(dispZ);
+                    cube.rotation.y += rotSpeed; // Vira à esquerda
+                }
+
+                if (keyA) {
+                    cube.translateZ(dispZ);
+                    cube.rotation.y -= rotSpeed; // Vira à direita
+                }
+            }
+
+
+            // Manter o Rover encostado ao terreno
+            cube.position.y = scene.getTerrainHeightAt(cube.position.x, cube.position.z);
+
+            // 3. Fazer as rodas girar adequadamente
+            if (keyW || keyS) {
+                // Andar para a frente ou trás: todas as rodas giram no mesmo sentido
+                const direction = keyW ? -0.2 : 0.2;
+                sceneElements.roverWheels.forEach(wheel => {
+                    wheel.rotation.x -= direction;
+                });
+            } else if (keyA || keyD) {
+                // Rodar no próprio eixo: rodas de um lado avançam, as do outro recuam
+                const direction = keyA ? -0.1 : 0.1;
+                sceneElements.roverWheels.forEach((wheel, index) => {
+                    // Índices pares (0, 2, 4) são as rodas do lado esquerdo
+                    // Índices ímpares (1, 3, 5) são as rodas do lado direito
+                    if (index % 2 === 0) {
+                        wheel.rotation.x -= direction; 
+                    } else {
+                        wheel.rotation.x += direction; 
+                    }
+                });
+            }
+
+                // ========================================================
+                // ATUALIZAÇÃO DAS CÂMARAS (ACOMPANHAR ROTAÇÃO)
+                // ========================================================
 
                 if (sceneElements.povCamera) {
-                    sceneElements.povCamera.position.set(
-                        cube.position.x,
-                        cube.position.y + 0.6,
-                        cube.position.z + 0.3
-                    );
-                    sceneElements.povCamera.lookAt(
-                        cube.position.x,
-                        cube.position.y + 0.6,
-                        cube.position.z - 2
-                    );
+                    // 1. Posição local da câmara (relativa ao mastro do rover)
+                    const localCamPos = new THREE.Vector3(0.4, 1.8, -1);
+                    // Converter para coordenadas globais do mundo
+                    cube.localToWorld(localCamPos); 
+                    sceneElements.povCamera.position.copy(localCamPos);
+
+                    // 2. Ponto local para onde olhar (ex: 10 unidades à frente do rover)
+                    const localTargetPos = new THREE.Vector3(0.4, 1.6, -10);
+                    // Converter para coordenadas globais do mundo
+                    cube.localToWorld(localTargetPos); 
+                    sceneElements.povCamera.lookAt(localTargetPos);
                 }
 
                 if (sceneElements.followCamera) {
-                    sceneElements.followCamera.position.set(
-                        cube.position.x + 6,
-                        cube.position.y + 4,
-                        cube.position.z + 8
-                    );
-                    sceneElements.followCamera.lookAt(cube.position.x, cube.position.y + 0.5, cube.position.z);
+                    // 1. Posição local da câmara de perseguição (ex: 6 unidades atrás e 3 acima)
+                    // Como a frente é -Z, a traseira do rover é +Z
+                    const localFollowPos = new THREE.Vector3(0, 3.5, 6); 
+                    cube.localToWorld(localFollowPos);
+                    sceneElements.followCamera.position.copy(localFollowPos);
+
+                    // 2. Olhar para o corpo do rover (ligeiramente acima do centro)
+                    const localFollowTarget = new THREE.Vector3(0, 1, 0);
+                    cube.localToWorld(localFollowTarget);
+                    sceneElements.followCamera.lookAt(localFollowTarget);
                 }
 
                 for (let i = sceneElements.minerals.length - 1; i >= 0; i--) {
@@ -403,6 +597,16 @@
                 case 80: //p
                     if (!event.repeat) {
                         toggleCamera();
+                    }
+                    break;
+                case 76: //l
+                    if (!event.repeat && sceneElements.battery > 0) {
+                        sceneElements.headlightsOn = !sceneElements.headlightsOn;
+                        // Intensidade 40 quando ligado, 0 quando desligado
+                        const intensity = sceneElements.headlightsOn ? 40 : 0; 
+                        sceneElements.headlights.forEach(light => {
+                            light.intensity = intensity;
+                        });
                     }
                     break;
             }
@@ -488,6 +692,7 @@
 </head>
 <body>
     <div id="mineralCounter">Minerais recolhidos: 0</div>
+    <div id="batteryCounter">Bateria: 100%</div>
     <div id="Tag3DScene"></div>
 </body>
 </html>
