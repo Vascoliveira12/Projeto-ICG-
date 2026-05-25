@@ -38,6 +38,102 @@
             user-select: none;
             transition: color 0.3s;
         }
+
+        /* Botão para abrir o menu */
+        #btnControlos {
+            position: fixed;
+            top: 12px;
+            right: 12px;
+            padding: 8px 16px;
+            background: rgba(20, 20, 20, 0.8);
+            color: #66d9ff;
+            border: 1px solid #66d9ff;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: sans-serif;
+            font-size: 14px;
+            z-index: 10;
+            transition: all 0.3s ease;
+        }
+
+        #btnControlos:hover {
+            background: rgba(102, 217, 255, 0.2);
+            box-shadow: 0 0 10px rgba(102, 217, 255, 0.5);
+        }
+
+        /* O Menu Modal */
+        #menuControlos {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%); /* Centra perfeitamente no ecrã */
+            background: rgba(15, 15, 20, 0.95);
+            color: white;
+            padding: 25px 40px;
+            border: 2px solid #44ff44;
+            border-radius: 12px;
+            font-family: sans-serif;
+            z-index: 20;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
+        }
+
+        /* Classe para esconder o menu */
+        .escondido {
+            display: none !important;
+        }
+
+        #menuControlos h3 {
+            margin-top: 0;
+            color: #44ff44;
+            text-align: center;
+            letter-spacing: 1px;
+        }
+
+        #menuControlos ul {
+            list-style-type: none;
+            padding: 0;
+            margin: 20px 0;
+        }
+
+        #menuControlos li {
+            margin-bottom: 12px;
+            font-size: 15px;
+            color: #ddd;
+        }
+
+        #menuControlos li strong {
+            display: inline-block;
+            width: 45px;
+            color: #66d9ff;
+            background: #222;
+            text-align: center;
+            border-radius: 4px;
+            padding: 2px 0;
+        }
+
+        #menuControlos hr {
+            border: 0;
+            border-top: 1px solid #444;
+            margin: 15px 0;
+        }
+
+        #btnFechar {
+            display: block;
+            margin: 0 auto;
+            padding: 8px 20px;
+            background: #333;
+            color: white;
+            border: 1px solid #888;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        #btnFechar:hover {
+            background: #ff4444;
+            border-color: #ff4444;
+        }
+        
     </style>
 
     <script type="importmap">
@@ -519,7 +615,6 @@
                 }
             }
 
-
             // Manter o Rover encostado ao terreno
             cube.position.y = scene.getTerrainHeightAt(cube.position.x, cube.position.z);
 
@@ -721,10 +816,28 @@
             computeFrame(sceneElements);
         }
 
+   
+
+        // ==========================================
+        // LÓGICA DO MENU DE CONTROLOS
+        // ==========================================
+        const btnControlos = document.getElementById('btnControlos');
+        const btnFechar = document.getElementById('btnFechar');
+        const menuControlos = document.getElementById('menuControlos');
+
+        // Abre o menu
+        btnControlos.addEventListener('click', () => {
+            menuControlos.classList.remove('escondido');
+        });
+
+        // Fecha o menu
+        btnFechar.addEventListener('click', () => {
+            menuControlos.classList.add('escondido');
+        });
+
         // STARTING
 
         init();
-
  
 
     </script>
@@ -732,6 +845,21 @@
 <body>
     <div id="mineralCounter">Minerais recolhidos: 0</div>
     <div id="batteryCounter">Bateria: 100%</div>
+    <button id="btnControlos">Ver Controlos</button>
+    <div id="menuControlos" class="escondido">
+        <h3>Painel de Navegação</h3>
+        <ul>
+            <li><strong>W</strong> : Avançar</li>
+            <li><strong>S</strong> : Recuar</li>
+            <li><strong>A</strong> : Virar à Esquerda</li>
+            <li><strong>D</strong> : Virar à Direita</li>
+            <li><hr></li>
+            <li><strong>P</strong> : Mudar de Câmara (Modos: Livre, POV, Seguir)</li>
+            <li><strong>L</strong> : Ligar / Desligar Faróis</li>
+            <li><strong>Rato</strong> : Rodar a câmara (Modo Livre)</li>
+        </ul>
+        <button id="btnFechar">Fechar [X]</button>
+    </div>
     <div id="Tag3DScene"></div>
 </body>
 </html>
