@@ -448,35 +448,74 @@
                 sceneElements.control.update();
             }
 
+            // ==========================================
+            // LÓGICA DA BATERIA E FARÓIS
+            // ==========================================
+            const isMoving = keyW || keyS || keyA || keyD;
+            const isDaytime = sceneElements.sunLight && sceneElements.sunLight.position.y > 0;
+
+            // 1. Recarregar (se for dia)
+            if (isDaytime) {
+                // Carrega mais rápido quando o sol está mais alto
+                const chargeRate = (sceneElements.sunLight.position.y / 150) * 0.05;
+                sceneElements.battery += chargeRate;
+            }
+
+            // 2. Gastar Bateria
+            if (isMoving && sceneElements.battery > 0) {
+                sceneElements.battery -= 0.03; // Gasta a andar
+            }
+            if (sceneElements.headlightsOn && sceneElements.battery > 0) {
+                sceneElements.battery -= 0.015; // Gasta com luzes ligadas
+            }
+
+            // 3. Limitar entre 0 e 100
+            sceneElements.battery = THREE.MathUtils.clamp(sceneElements.battery, 0, 100);
+
+            // 4. Desligar luzes à força se ficar sem bateria
+            if (sceneElements.battery <= 0 && sceneElements.headlightsOn) {
+                sceneElements.headlightsOn = false;
+                sceneElements.headlights.forEach(light => light.intensity = 0);
+            }
+
+            // 5. Atualizar o UI
+            const batteryUI = document.querySelector("#batteryCounter");
+            batteryUI.textContent = `Bateria: ${Math.floor(sceneElements.battery)}%`;
+            if (sceneElements.battery > 50) batteryUI.style.color = "#44ff44"; // Verde
+            else if (sceneElements.battery > 20) batteryUI.style.color = "#ffff44"; // Amarelo
+            else batteryUI.style.color = "#ff4444"; // Vermelho
+
             // CONTROLING THE ROVER WITH THE KEYBOARD
             const cube = sceneElements.rover;
             const rotSpeed = 0.04; // Velocidade a que o rover vira (podes ajustar)
+            const hasBattery = sceneElements.battery > 0;
 
+            if (hasBattery) {
 
-
-            // 2. Movimento (Avançar e Recuar na direção para onde está virado)
-            if (keyW) {
-                cube.translateZ(-dispZ);
-                if (keyA) {
+                // 2. Movimento (Avançar e Recuar na direção para onde está virado)
+                if (keyW) {
                     cube.translateZ(-dispZ);
-                    cube.rotation.y += rotSpeed; // Vira à esquerda
-                }
+                    if (keyA) {
+                        cube.translateZ(-dispZ);
+                        cube.rotation.y += rotSpeed; // Vira à esquerda
+                    }
 
-                if (keyD) {
-                    cube.translateZ(-dispZ);
-                    cube.rotation.y -= rotSpeed; // Vira à direita
+                    if (keyD) {
+                        cube.translateZ(-dispZ);
+                        cube.rotation.y -= rotSpeed; // Vira à direita
+                    }
                 }
-            }
-            if (keyS) {
-                cube.translateZ(dispZ);
-                if (keyD) {
+                if (keyS) {
                     cube.translateZ(dispZ);
-                    cube.rotation.y += rotSpeed; // Vira à esquerda
-                }
+                    if (keyD) {
+                        cube.translateZ(dispZ);
+                        cube.rotation.y += rotSpeed; // Vira à esquerda
+                    }
 
-                if (keyA) {
-                    cube.translateZ(dispZ);
-                    cube.rotation.y -= rotSpeed; // Vira à direita
+                    if (keyA) {
+                        cube.translateZ(dispZ);
+                        cube.rotation.y -= rotSpeed; // Vira à direita
+                    }
                 }
             }
 
