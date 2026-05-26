@@ -171,13 +171,13 @@
         };
 
         const terrainData = {
-            size: 200,
-            segments: 100,
+            size: 1000,
+            segments: 250,
             heights: [],
         };
 
         const mineralData = {
-            count: 60,
+            count: 500,
             collectionDistance: 1.25,
         };
 
@@ -685,16 +685,28 @@
                 }
 
                 if (sceneElements.followCamera) {
-                    // 1. Posição local da câmara de perseguição (ex: 6 unidades atrás e 3 acima)
-                    // Como a frente é -Z, a traseira do rover é +Z
-                    const localFollowPos = new THREE.Vector3(0, 3.5, 6); 
-                    cube.localToWorld(localFollowPos);
-                    sceneElements.followCamera.position.copy(localFollowPos);
+                    // 1. Posição IDEAL da câmara (atrás do rover)
+                    const idealPos = new THREE.Vector3(0, 3.5, 6); 
+                    cube.localToWorld(idealPos);
+                    
+                    // Em vez de teleportar (.copy), usamos .lerp para mover suavemente (10% do caminho por frame)
+                    // Isto cria um efeito de elástico que absorve os tremores do terreno
+                    sceneElements.followCamera.position.lerp(idealPos, 0.1);
 
-                    // 2. Olhar para o corpo do rover (ligeiramente acima do centro)
-                    const localFollowTarget = new THREE.Vector3(0, 1, 0);
-                    cube.localToWorld(localFollowTarget);
-                    sceneElements.followCamera.lookAt(localFollowTarget);
+                    // 2. Ponto IDEAL para onde olhar (centro do rover)
+                    const idealTarget = new THREE.Vector3(0, 1, 0);
+                    cube.localToWorld(idealTarget);
+                    
+                    // Inicializar a variável global para o alvo do olhar (se ainda não existir)
+                    if (!sceneElements.currentFollowTarget) {
+                        sceneElements.currentFollowTarget = idealTarget.clone();
+                    }
+                    
+                    // Interpolar também o alvo do olhar para que a câmara não rode bruscamente
+                    sceneElements.currentFollowTarget.lerp(idealTarget, 0.1);
+                    
+                    // Apontar a câmara para o alvo suavizado
+                    sceneElements.followCamera.lookAt(sceneElements.currentFollowTarget);
                 }
 
                 for (let i = sceneElements.minerals.length - 1; i >= 0; i--) {
