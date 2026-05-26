@@ -265,6 +265,9 @@
                 sceneElements.control = new OrbitControls(camera, renderer.domElement);
                 sceneElements.control.screenSpacePanning = true;
 
+                // NOVO: Impede o utilizador de rodar a câmara totalmente para debaixo de terra
+                sceneElements.control.maxPolarAngle = Math.PI / 2 - 0.05;
+
             },
 
             render: function (sceneElements) {
@@ -535,6 +538,23 @@
                 sceneElements.control.update();
             }
 
+            // ==========================================
+            // COLISÃO DA CÂMARA LIVRE COM O TERRENO
+            // ==========================================
+            if (sceneElements.cameraMode === 0) {
+                const cam = sceneElements.camera;
+                // Calcular a altura do terreno nas coordenadas X e Z atuais da câmara
+                const terrainHeight = scene.getTerrainHeightAt(cam.position.x, cam.position.z);
+                
+                // Definir uma altura mínima (0.5 unidades acima do chão para não cortar a textura)
+                const minCamHeight = terrainHeight + 0.5;
+
+                // Se a câmara tentar descer abaixo desse limite, empurrá-la de volta para cima
+                if (cam.position.y < minCamHeight) {
+                    cam.position.y = minCamHeight;
+                }
+            }
+            
             // ==========================================
             // LÓGICA DA BATERIA E FARÓIS
             // ==========================================
