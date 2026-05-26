@@ -26,7 +26,7 @@
 
         #batteryCounter {
             position: fixed;
-            top: 50px; /* Fica por baixo do contador de minerais */
+            top: 50px;
             left: 12px;
             padding: 8px 12px;
             border-radius: 8px;
@@ -151,7 +151,6 @@
 
         import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
-        // To store the scene graph, and elements usefull to rendering the scene
         const sceneElements = {
             sceneGraph: null,
             camera: null,
@@ -163,9 +162,9 @@
             sunLight: null,
             ambientLight: null,
             rover: null,
-            headlights: [], // Guarda os faróis
-            headlightsOn: false, // Estado das luzes
-            battery: 100, // Começa com 100%
+            headlights: [],
+            headlightsOn: false,
+            battery: 100,
             minerals: [],
             mineralsCollected: 0,
             cameraMode: 0,
@@ -213,10 +212,6 @@
                 // Illumination
                 // ************************** //
 
-                // ************************** //
-                // Illumination (Dia/Noite)
-                // ************************** //
-
                 // Luz Ambiente
                 const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
                 sceneElements.sceneGraph.add(ambientLight);
@@ -242,7 +237,7 @@
                 sunLight.shadow.mapSize.height = 2048;
 
                 sceneElements.sunLight = sunLight;
-                sceneElements.sunOrbitSpeed = 0.00005; // Ajusta este valor para dias mais rápidos ou lentos
+                sceneElements.sunOrbitSpeed = 0.00005; // Velocidade do dia e noite
                 
 
                 // *********************************** //
@@ -615,8 +610,44 @@
                 }
             }
 
-            // Manter o Rover encostado ao terreno
-            cube.position.y = scene.getTerrainHeightAt(cube.position.x, cube.position.z);
+            // ==========================================
+            // ALINHAR O ROVER COM O RELEVO (PITCH & ROLL)
+            // ==========================================
+            // 1. Guardar a direção (Yaw) para onde o rover está virado
+            const currentYaw = cube.rotation.y;
+            
+            // 2. Distância do centro até às rodas (o "footprint" do rover)
+            const L_Z = 0.8;  // Distância do centro até às rodas da frente/trás
+            const L_X = 0.75; // Distância do centro até às rodas laterais
+            
+            // 3. Descobrir os vetores de direção locais no mundo 3D
+            const dirZ = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), currentYaw);
+            const dirX = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), currentYaw);
+
+            // 4. Calcular onde as rodas tocam no mapa (X e Z globais)
+            const pFront = { x: cube.position.x + dirZ.x * L_Z, z: cube.position.z + dirZ.z * L_Z };
+            const pBack  = { x: cube.position.x - dirZ.x * L_Z, z: cube.position.z - dirZ.z * L_Z };
+            const pRight = { x: cube.position.x + dirX.x * L_X, z: cube.position.z + dirX.z * L_X };
+            const pLeft  = { x: cube.position.x - dirX.x * L_X, z: cube.position.z - dirX.z * L_X };
+
+            // 5. Obter a altura do terreno nesses exatos pontos
+            const hFront = scene.getTerrainHeightAt(pFront.x, pFront.z);
+            const hBack  = scene.getTerrainHeightAt(pBack.x, pBack.z);
+            const hRight = scene.getTerrainHeightAt(pRight.x, pRight.z);
+            const hLeft  = scene.getTerrainHeightAt(pLeft.x, pLeft.z);
+
+            // 6. A nova altura do chassi passa a ser a média das alturas das rodas
+            cube.position.y = (hFront + hBack + hRight + hLeft) / 4; 
+
+            // 7. Calcular a inclinação usando trigonometria
+            const pitch = Math.atan2(hFront - hBack, L_Z * 2); // Levantar ou baixar o nariz
+            const roll  = Math.atan2(hRight - hLeft, L_X * 2); // Tombar para os lados
+
+            // 8. Aplicar a rotação (A ordem 'YXZ' é obrigatória: vira primeiro, inclina depois)
+            cube.rotation.order = 'YXZ';
+            cube.rotation.x = pitch;
+            cube.rotation.z = roll;
+            // A rotação Y (direção) já é controlada pelas teclas A e D, não mexemos
 
             // 3. Fazer as rodas girar adequadamente
             if (keyW || keyS) {
@@ -691,15 +722,9 @@
             // Rendering
             helper.render(sceneElements);
 
-            // Call for the next frame
-            // Uncomment to allow animation
             requestAnimationFrame(computeFrame);
         }
 
-        // Call functions:
-        //  1. Initialize the empty scene
-        //  2. Add elements within the scene
-        //  3. Animate
 
         function init() {
             helper.initEmptyScene(sceneElements);
