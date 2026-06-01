@@ -10,6 +10,7 @@
     <style>
         body { margin: 0px; overflow: hidden; }
 
+        /* Código CSS */
         #mineralCounter {
             position: fixed;
             top: 12px;
@@ -31,7 +32,7 @@
             padding: 8px 12px;
             border-radius: 8px;
             background: rgba(20, 20, 20, 0.55);
-            color: #44ff44; /* Verde para começar */
+            color: #44ff44; /* Começa com cor verde */
             font-family: sans-serif;
             font-size: 14px;
             z-index: 10;
@@ -39,7 +40,6 @@
             transition: color 0.3s;
         }
 
-        /* Botão para abrir o menu */
         #btnControlos {
             position: fixed;
             top: 12px;
@@ -61,12 +61,11 @@
             box-shadow: 0 0 10px rgba(102, 217, 255, 0.5);
         }
 
-        /* O Menu Modal */
         #menuControlos {
             position: fixed;
             top: 50%;
             left: 50%;
-            transform: translate(-50%, -50%); /* Centra perfeitamente no ecrã */
+            transform: translate(-50%, -50%);
             background: rgba(15, 15, 20, 0.95);
             color: white;
             padding: 25px 40px;
@@ -77,7 +76,6 @@
             box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
         }
 
-        /* Classe para esconder o menu */
         .escondido {
             display: none !important;
         }
@@ -151,6 +149,7 @@
 
         import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
+        // Constantes globais
         const sceneElements = {
             sceneGraph: null,
             camera: null,
@@ -172,7 +171,7 @@
 
         const terrainData = {
             size: 1000,
-            segments: 250,
+            segments: 250, // Quantidade de elevações no terreno
             heights: [],
         };
 
@@ -185,14 +184,10 @@
 
             initEmptyScene: function (sceneElements) {
 
-                // ************************** //
-                // Create the 3D scene
-                // ************************** //
                 sceneElements.sceneGraph = new THREE.Scene();
 
-                // ************************** //
-                // Add camera
-                // ************************** //
+                // Câmaras
+
                 const width = window.innerWidth;
                 const height = window.innerHeight;
                 const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 500);
@@ -208,18 +203,16 @@
                 const followCamera = new THREE.PerspectiveCamera(60, width / height, 0.1, 500);
                 sceneElements.followCamera = followCamera;
 
-                // ************************** //
-                // Illumination
-                // ************************** //
+                // Iluminação
 
                 // Luz Ambiente
                 const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
                 sceneElements.sceneGraph.add(ambientLight);
                 sceneElements.ambientLight = ambientLight;
 
-                // Luz Solar (Directional Light em vez de SpotLight)
+                // Luz Solar
                 const sunLight = new THREE.DirectionalLight(0xffaa88, 3);
-                sunLight.position.set(100, 100, 0); // Posição inicial
+                sunLight.position.set(100, 100, 0);
                 sceneElements.sceneGraph.add(sunLight);
 
                 // Configurar o mapa de sombras do Sol para abranger todo o terreno
@@ -239,33 +232,23 @@
                 sceneElements.sunLight = sunLight;
                 sceneElements.sunOrbitSpeed = 0.00005; // Velocidade do dia e noite
                 
-
-                // *********************************** //
-                // Create renderer (with shadow map)
-                // *********************************** //
+                // Renderer
                 const renderer = new THREE.WebGLRenderer({ antialias: true });
                 sceneElements.renderer = renderer;
                 renderer.setPixelRatio(window.devicePixelRatio);
                 renderer.setClearColor('rgb(255, 255, 150)', 1.0);
                 renderer.setSize(width, height);
-
-                // Setup shadowMap property
                 renderer.shadowMap.enabled = true;
                 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-                // **************************************** //
-                // Add the rendered image in the HTML DOM
-                // **************************************** //
                 const htmlElement = document.querySelector("#Tag3DScene");
                 htmlElement.appendChild(renderer.domElement);
 
-                // ************************** //
-                // Control for the camera
-                // ************************** //
+                // Controlar a câmara com o rato
                 sceneElements.control = new OrbitControls(camera, renderer.domElement);
                 sceneElements.control.screenSpacePanning = true;
 
-                // NOVO: Impede o utilizador de rodar a câmara totalmente para debaixo de terra
+                // Impede o utilizador de rodar a câmara totalmente para debaixo de terra
                 sceneElements.control.maxPolarAngle = Math.PI / 2 - 0.05;
 
             },
@@ -276,26 +259,30 @@
         };
 
         const scene = {
+            // Função para obter a altura do terreno em coordenadas X e Z específicas utilizando interpolação bilinear
             getTerrainHeightAt: function (x, z) {
                 const grid = terrainData.segments;
                 const side = grid + 1;
                 const halfSize = terrainData.size / 2;
                 const step = terrainData.size / grid;
 
+                // Limita as coordenadas X e Z para ficarem dentro do terreno
                 const clampedX = THREE.MathUtils.clamp(x, -halfSize, halfSize);
                 const clampedZ = THREE.MathUtils.clamp(z, -halfSize, halfSize);
 
                 const fx = (clampedX + halfSize) / step;
                 const fz = (clampedZ + halfSize) / step;
 
+                // Identifica os quatro pontos do quadrado que envolvem as coordenadas (x, z)
                 const x0 = Math.floor(fx);
                 const z0 = Math.floor(fz);
                 const x1 = Math.min(grid, x0 + 1);
                 const z1 = Math.min(grid, z0 + 1);
-
+ 
                 const tx = fx - x0;
                 const tz = fz - z0;
 
+                // Altura de cada um dos pontos do quadrado
                 const h00 = terrainData.heights[z0 * side + x0] ?? 0;
                 const h10 = terrainData.heights[z0 * side + x1] ?? 0;
                 const h01 = terrainData.heights[z1 * side + x0] ?? 0;
@@ -307,7 +294,7 @@
             },
 
             load3DObjects: function (sceneGraph) {
-                // Figuras Geométricas
+                // Terreno
                 const terrenoGeometry = new THREE.PlaneGeometry(terrainData.size, terrainData.size, terrainData.segments, terrainData.segments);
                 terrenoGeometry.rotateX(-Math.PI / 2);
                 for(let i = 0; i < terrenoGeometry.attributes.position.count; i++) {
@@ -328,12 +315,10 @@
 
 
 
-                // ************************** //
-                // ROVER MARCIANO
-                // ************************** //
+                // Rover
                 const grupo = new THREE.Group();
 
-                // Paleta de Materiais do Rover
+                // Paleta de materiais do rover
                 const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0xeeeeee, metalness: 0.4, roughness: 0.6 });
                 const darkMetalMaterial = new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.7, roughness: 0.3 });
                 const wheelMaterial = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.9 });
@@ -341,24 +326,24 @@
                 const cameraLensMaterial = new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.1 });
                 const goldMaterial = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.8, roughness: 0.3 });
 
-                // 1. Chassi Central
+                // Chassi central
                 const chassiGeometry = new THREE.BoxGeometry(1.2, 0.6, 2);
                 const chassi = new THREE.Mesh(chassiGeometry, bodyMaterial);
-                chassi.position.y = 0.7; // Altura do chassi em relação ao chão
+                chassi.position.y = 0.7;
                 chassi.castShadow = true;
                 chassi.receiveShadow = true;
                 grupo.add(chassi);
 
-                // 2. Painel Solar (Topo)
+                // Painel solar
                 const panelGeometry = new THREE.BoxGeometry(1.0, 0.05, 1.4);
                 const panel = new THREE.Mesh(panelGeometry, solarMaterial);
-                panel.position.set(0, 1.025, -0.1); // Assente no chassi
+                panel.position.set(0, 1.025, -0.1);
                 panel.castShadow = true;
                 grupo.add(panel);
 
-                // 3. Rodas (6 rodas independentes estilo suspensão rocker-bogie)
+                // Rodas
                 const wheelGeometry = new THREE.CylinderGeometry(0.3, 0.3, 0.25, 32);
-                wheelGeometry.rotateZ(Math.PI / 2); // Deitar o cilindro para ficar com formato de roda
+                wheelGeometry.rotateZ(Math.PI / 2);
 
                 const wheelPositions = [
                     [-0.75, 0.3, 0.8],  // Trás Esquerda
@@ -369,7 +354,6 @@
                     [ 0.75, 0.3, -0.8]  // Frente Direita
                 ];
 
-                // Guardar as rodas num array para as podermos animar a girar
                 sceneElements.roverWheels = []; 
 
                 wheelPositions.forEach(pos => {
@@ -385,19 +369,19 @@
                 wheelPositions.forEach(pos => {
                     const suspGeometry = new THREE.CylinderGeometry(0.05, 0.05, 0.4);
                     const susp = new THREE.Mesh(suspGeometry, darkMetalMaterial);
-                    // Ligeiramente inclinadas para dentro
                     susp.position.set(pos[0] > 0 ? pos[0] - 0.1 : pos[0] + 0.1, 0.5, pos[2]);
                     susp.castShadow = true;
                     grupo.add(susp);
                 });
 
-                // 4. Mastro e Cabeça da Câmara
+                // Mastro que segura a câmara
                 const mastGeometry = new THREE.CylinderGeometry(0.06, 0.06, 0.8);
                 const mast = new THREE.Mesh(mastGeometry, bodyMaterial);
-                mast.position.set(0.4, 1.4, -0.8); // Descentrado na frente
+                mast.position.set(0.4, 1.4, -0.8);
                 mast.castShadow = true;
                 grupo.add(mast);
 
+                // Cabeça
                 const headGroup = new THREE.Group();
                 headGroup.position.set(0.4, 1.8, -0.8); // Topo do mastro
 
@@ -420,7 +404,7 @@
 
                 grupo.add(headGroup);
 
-                // 5. Gerador Termoelétrico (RTG) na Traseira - Detalhe Dourado
+                // Gerador termoelétrico (detalhe dourado)
                 const rtgGeo = new THREE.CylinderGeometry(0.25, 0.25, 0.5, 16);
                 rtgGeo.rotateZ(Math.PI / 2);
                 const rtg = new THREE.Mesh(rtgGeo, goldMaterial);
@@ -428,24 +412,22 @@
                 rtg.castShadow = true;
                 grupo.add(rtg);
 
-                // Posicionamento Inicial
+                // Posição inicial
                 grupo.position.set(0, 0, -2);
                 
-                // NOTA: Como o ponto mais baixo da roda (raio 0.3) está no y=0 do grupo, 
-                // já não precisamos de somar um offset ao encostar o Rover ao terreno.
+                // Pousa o rover no terreno de maneira a não começar nem a flutuar nem enterrado
                 grupo.position.y = scene.getTerrainHeightAt(grupo.position.x, grupo.position.z);
 
-                // 6. Faróis (Headlights)
+                // Faróis
                 const createHeadlight = (xPosition) => {
                     // Intensidade 0 para começar desligado
                     const spotLight = new THREE.SpotLight(0xffffee, 0); 
-                    spotLight.position.set(xPosition, 1.0, -1); // Na frente do rover
-                    spotLight.angle = Math.PI / 5; // Abertura do feixe
-                    spotLight.penumbra = 0.5; // Bordos suaves
-                    spotLight.distance = 60; // Distância que a luz alcança
+                    spotLight.position.set(xPosition, 1.0, -1);
+                    spotLight.angle = Math.PI / 5;
+                    spotLight.penumbra = 0.5;
+                    spotLight.distance = 60;
                     spotLight.castShadow = true;
 
-                    // O 'target' define para onde a luz aponta (para a frente do rover)
                     const targetObj = new THREE.Object3D();
                     targetObj.position.set(xPosition, 0.5, -5); 
                     grupo.add(targetObj);
@@ -461,6 +443,7 @@
                 sceneGraph.add(grupo);
                 sceneElements.rover = grupo;
 
+                // Minerais
                 const mineralGeometry = new THREE.IcosahedronGeometry(0.22, 0);
                 const mineralMaterial = new THREE.MeshStandardMaterial({
                     color: 0x66d9ff,
@@ -470,6 +453,7 @@
                     emissiveIntensity: 0.35,
                 });
 
+                // Gerar minerais em posições aleatórias, mas garantindo que estão acima do terreno
                 for (let i = 0; i < mineralData.count; i++) {
                     const mineral = new THREE.Mesh(mineralGeometry, mineralMaterial.clone());
                     const x = THREE.MathUtils.randFloat(-terrainData.size / 2 + 2, terrainData.size / 2 - 2);
@@ -489,46 +473,33 @@
             },  
         };
 
-        // ANIMATION
-
-        // Displacement values
-        var delta = 0.1;
-        var dispX = 0.2, dispZ = 0.2;
-
-        //To keep track of the keyboard - WASD
         var keyD = false, keyA = false, keyS = false, keyW = false;
 
 
         function computeFrame(time) {
-
-            // ==========================================
-            // CICLO DIA / NOITE
-            // ==========================================
+            // Função para o ciclo dia / noite
             if (sceneElements.sunLight) {
                 const angle = time * sceneElements.sunOrbitSpeed;
                 const radius = 150; // Distância do sol ao centro do mapa
 
-                // 1. Calcular a órbita num arco (nasce, sobe, põe-se)
+                // Calcular a órbita num arco (nasce, sobe, põe-se)
                 sceneElements.sunLight.position.x = Math.cos(angle) * radius;
                 sceneElements.sunLight.position.y = Math.sin(angle) * radius;
-                // Um ligeiro desvio no Z para as sombras terem um ângulo interessante
                 sceneElements.sunLight.position.z = Math.cos(angle) * 50; 
 
-                // 2. Transições de intensidade baseadas na altura do sol
+                // Transições de intensidade baseadas na altura do sol
                 // heightFactor vai de 0 (sol no horizonte/abaixo) a 1 (sol no pico do meio-dia)
                 const heightFactor = Math.max(0, sceneElements.sunLight.position.y / radius);
-
-                // O sol atinge força máxima ao meio-dia, desliga-se de noite
                 sceneElements.sunLight.intensity = heightFactor * 4.0;
 
-                // A luz ambiente escurece de noite (mas nunca fica a zero para poderes ver algo)
+                // A luz ambiente escurece de noite, mas nunca fica a zero para se conseguir ver alguma coisa
                 if (sceneElements.ambientLight) {
                     sceneElements.ambientLight.intensity = 0.1 + (heightFactor * 0.7);
                 }
 
-                // 3. Mudar a cor do céu (fundo) de acordo com a hora
-                const dayColor = new THREE.Color('rgb(255, 200, 150)'); // Céu marciano de dia
-                const nightColor = new THREE.Color('rgb(5, 5, 10)');    // Noite escura
+                // Muda a cor do céu de acordo com a hora
+                const dayColor = new THREE.Color('rgb(255, 200, 150)');
+                const nightColor = new THREE.Color('rgb(5, 5, 10)');
                 const currentSkyColor = nightColor.clone().lerp(dayColor, heightFactor);
                 
                 sceneElements.renderer.setClearColor(currentSkyColor, 1.0);
@@ -538,15 +509,12 @@
                 sceneElements.control.update();
             }
 
-            // ==========================================
-            // COLISÃO DA CÂMARA LIVRE COM O TERRENO
-            // ==========================================
+            // Não permitir que a câmara livre ultrapasse o terreno
             if (sceneElements.cameraMode === 0) {
                 const cam = sceneElements.camera;
-                // Calcular a altura do terreno nas coordenadas X e Z atuais da câmara
                 const terrainHeight = scene.getTerrainHeightAt(cam.position.x, cam.position.z);
                 
-                // Definir uma altura mínima (0.5 unidades acima do chão para não cortar a textura)
+                // altura mínima a que a câmara fica do terreno
                 const minCamHeight = terrainHeight + 0.5;
 
                 // Se a câmara tentar descer abaixo desse limite, empurrá-la de volta para cima
@@ -555,20 +523,18 @@
                 }
             }
             
-            // ==========================================
-            // LÓGICA DA BATERIA E FARÓIS
-            // ==========================================
+            // Lógica da bateria e faróis
             const isMoving = keyW || keyS || keyA || keyD;
             const isDaytime = sceneElements.sunLight && sceneElements.sunLight.position.y > 0;
 
-            // 1. Recarregar (se for dia)
+            // Recarregar (se for dia)
             if (isDaytime) {
                 // Carrega mais rápido quando o sol está mais alto
                 const chargeRate = (sceneElements.sunLight.position.y / 150) * 0.05;
                 sceneElements.battery += chargeRate;
             }
 
-            // 2. Gastar Bateria
+            // Gastar bateria
             if (isMoving && sceneElements.battery > 0) {
                 sceneElements.battery -= 0.03; // Gasta a andar
             }
@@ -576,159 +542,135 @@
                 sceneElements.battery -= 0.015; // Gasta com luzes ligadas
             }
 
-            // 3. Limitar entre 0 e 100
+            // Limitar entre 0 e 100
             sceneElements.battery = THREE.MathUtils.clamp(sceneElements.battery, 0, 100);
 
-            // 4. Desligar luzes à força se ficar sem bateria
+            // Desligar luzes à força se ficar sem bateria
             if (sceneElements.battery <= 0 && sceneElements.headlightsOn) {
                 sceneElements.headlightsOn = false;
                 sceneElements.headlights.forEach(light => light.intensity = 0);
             }
 
-            // 5. Atualizar o UI
+            // Atualizar o display da bateria
             const batteryUI = document.querySelector("#batteryCounter");
             batteryUI.textContent = `Bateria: ${Math.floor(sceneElements.battery)}%`;
             if (sceneElements.battery > 50) batteryUI.style.color = "#44ff44"; // Verde
             else if (sceneElements.battery > 20) batteryUI.style.color = "#ffff44"; // Amarelo
             else batteryUI.style.color = "#ff4444"; // Vermelho
 
-            // CONTROLING THE ROVER WITH THE KEYBOARD
-            const cube = sceneElements.rover;
-            const rotSpeed = 0.04; // Velocidade a que o rover vira (podes ajustar)
+            // Controlar o rover
+            const carro = sceneElements.rover;
+            const rotSpeed = 0.04; // Velocidade a que o rover vira
             const hasBattery = sceneElements.battery > 0;
 
             if (hasBattery) {
 
-                // 2. Movimento (Avançar e Recuar na direção para onde está virado)
+                // Movimento (Avançar e Recuar na direção para onde está virado)
                 if (keyW) {
-                    cube.translateZ(-dispZ);
+                    carro.translateZ(-0.2);
                     if (keyA) {
-                        cube.translateZ(-dispZ);
-                        cube.rotation.y += rotSpeed; // Vira à esquerda
+                        carro.translateZ(-0.2);
+                        carro.rotation.y += rotSpeed; // Vira à esquerda
                     }
 
                     if (keyD) {
-                        cube.translateZ(-dispZ);
-                        cube.rotation.y -= rotSpeed; // Vira à direita
+                        carro.translateZ(-0.2);
+                        carro.rotation.y -= rotSpeed; // Vira à direita
                     }
                 }
                 if (keyS) {
-                    cube.translateZ(dispZ);
+                    carro.translateZ(0.2);
                     if (keyD) {
-                        cube.translateZ(dispZ);
-                        cube.rotation.y += rotSpeed; // Vira à esquerda
+                        carro.translateZ(0.2);
+                        carro.rotation.y += rotSpeed; // Vira à esquerda
                     }
 
                     if (keyA) {
-                        cube.translateZ(dispZ);
-                        cube.rotation.y -= rotSpeed; // Vira à direita
+                        carro.translateZ(0.2);
+                        carro.rotation.y -= rotSpeed; // Vira à direita
                     }
                 }
             }
 
-            // ==========================================
-            // ALINHAR O ROVER COM O RELEVO (PITCH & ROLL)
-            // ==========================================
-            // 1. Guardar a direção (Yaw) para onde o rover está virado
-            const currentYaw = cube.rotation.y;
+            // Manter o rover dentro dos limites do plano
+            const roverLimit = (terrainData.size / 2) - 0.8;
+            carro.position.x = THREE.MathUtils.clamp(carro.position.x, -roverLimit, roverLimit);
+            carro.position.z = THREE.MathUtils.clamp(carro.position.z, -roverLimit, roverLimit);
+
+
+            // Inclinar o rover de acordo com o terreno (pitch and roll)
+            const currentYaw = carro.rotation.y;
             
-            // 2. Distância do centro até às rodas (o "footprint" do rover)
             const L_Z = 0.8;  // Distância do centro até às rodas da frente/trás
             const L_X = 0.75; // Distância do centro até às rodas laterais
             
-            // 3. Descobrir os vetores de direção locais no mundo 3D
             const dirZ = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), currentYaw);
             const dirX = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), currentYaw);
 
-            // 4. Calcular onde as rodas tocam no mapa (X e Z globais)
-            const pFront = { x: cube.position.x + dirZ.x * L_Z, z: cube.position.z + dirZ.z * L_Z };
-            const pBack  = { x: cube.position.x - dirZ.x * L_Z, z: cube.position.z - dirZ.z * L_Z };
-            const pRight = { x: cube.position.x + dirX.x * L_X, z: cube.position.z + dirX.z * L_X };
-            const pLeft  = { x: cube.position.x - dirX.x * L_X, z: cube.position.z - dirX.z * L_X };
+            const pFront = { x: carro.position.x + dirZ.x * L_Z, z: carro.position.z + dirZ.z * L_Z };
+            const pBack  = { x: carro.position.x - dirZ.x * L_Z, z: carro.position.z - dirZ.z * L_Z };
+            const pRight = { x: carro.position.x + dirX.x * L_X, z: carro.position.z + dirX.z * L_X };
+            const pLeft  = { x: carro.position.x - dirX.x * L_X, z: carro.position.z - dirX.z * L_X };
 
-            // 5. Obter a altura do terreno nesses exatos pontos
+            // Obter a altura do terreno nesses exatos pontos
             const hFront = scene.getTerrainHeightAt(pFront.x, pFront.z);
             const hBack  = scene.getTerrainHeightAt(pBack.x, pBack.z);
             const hRight = scene.getTerrainHeightAt(pRight.x, pRight.z);
             const hLeft  = scene.getTerrainHeightAt(pLeft.x, pLeft.z);
 
-            // 6. A nova altura do chassi passa a ser a média das alturas das rodas
-            cube.position.y = (hFront + hBack + hRight + hLeft) / 4; 
+            // A nova altura do chassi passa a ser a média das alturas das rodas
+            carro.position.y = (hFront + hBack + hRight + hLeft) / 4; 
 
-            // 7. Calcular a inclinação usando trigonometria
-            const pitch = Math.atan2(hFront - hBack, L_Z * 2); // Levantar ou baixar o nariz
+            // Calcular a inclinação usando trigonometria
+            const pitch = Math.atan2(hFront - hBack, L_Z * 2); // Levantar ou baixar a frente do rover
             const roll  = Math.atan2(hRight - hLeft, L_X * 2); // Tombar para os lados
 
-            // 8. Aplicar a rotação (A ordem 'YXZ' é obrigatória: vira primeiro, inclina depois)
-            cube.rotation.order = 'YXZ';
-            cube.rotation.x = pitch;
-            cube.rotation.z = roll;
-            // A rotação Y (direção) já é controlada pelas teclas A e D, não mexemos
+            carro.rotation.order = 'YXZ';
+            carro.rotation.x = pitch;
+            carro.rotation.z = roll;
 
-            // 3. Fazer as rodas girar adequadamente
+            //Fazer as rodas girar adequadamente
             if (keyW || keyS) {
                 // Andar para a frente ou trás: todas as rodas giram no mesmo sentido
                 const direction = keyW ? -0.2 : 0.2;
                 sceneElements.roverWheels.forEach(wheel => {
                     wheel.rotation.x -= direction;
                 });
-            } else if (keyA || keyD) {
-                // Rodar no próprio eixo: rodas de um lado avançam, as do outro recuam
-                const direction = keyA ? -0.1 : 0.1;
-                sceneElements.roverWheels.forEach((wheel, index) => {
-                    // Índices pares (0, 2, 4) são as rodas do lado esquerdo
-                    // Índices ímpares (1, 3, 5) são as rodas do lado direito
-                    if (index % 2 === 0) {
-                        wheel.rotation.x -= direction; 
-                    } else {
-                        wheel.rotation.x += direction; 
-                    }
-                });
             }
 
-                // ========================================================
-                // ATUALIZAÇÃO DAS CÂMARAS (ACOMPANHAR ROTAÇÃO)
-                // ========================================================
+                // Lógica das câmaras
 
+                // Câmara POV
                 if (sceneElements.povCamera) {
-                    // 1. Posição local da câmara (relativa ao mastro do rover)
                     const localCamPos = new THREE.Vector3(0.4, 1.8, -1);
-                    // Converter para coordenadas globais do mundo
-                    cube.localToWorld(localCamPos); 
+                    carro.localToWorld(localCamPos); 
                     sceneElements.povCamera.position.copy(localCamPos);
 
-                    // 2. Ponto local para onde olhar (ex: 10 unidades à frente do rover)
                     const localTargetPos = new THREE.Vector3(0.4, 1.6, -10);
-                    // Converter para coordenadas globais do mundo
-                    cube.localToWorld(localTargetPos); 
+                    carro.localToWorld(localTargetPos); 
                     sceneElements.povCamera.lookAt(localTargetPos);
                 }
 
+                // Câmara seguir
                 if (sceneElements.followCamera) {
-                    // 1. Posição IDEAL da câmara (atrás do rover)
                     const idealPos = new THREE.Vector3(0, 3.5, 6); 
-                    cube.localToWorld(idealPos);
+                    carro.localToWorld(idealPos);
                     
-                    // Em vez de teleportar (.copy), usamos .lerp para mover suavemente (10% do caminho por frame)
-                    // Isto cria um efeito de elástico que absorve os tremores do terreno
+                    // Tornar o movimento da câmara mais suave
                     sceneElements.followCamera.position.lerp(idealPos, 0.1);
 
-                    // 2. Ponto IDEAL para onde olhar (centro do rover)
                     const idealTarget = new THREE.Vector3(0, 1, 0);
-                    cube.localToWorld(idealTarget);
+                    carro.localToWorld(idealTarget);
                     
-                    // Inicializar a variável global para o alvo do olhar (se ainda não existir)
                     if (!sceneElements.currentFollowTarget) {
                         sceneElements.currentFollowTarget = idealTarget.clone();
                     }
                     
-                    // Interpolar também o alvo do olhar para que a câmara não rode bruscamente
                     sceneElements.currentFollowTarget.lerp(idealTarget, 0.1);
-                    
-                    // Apontar a câmara para o alvo suavizado
                     sceneElements.followCamera.lookAt(sceneElements.currentFollowTarget);
                 }
 
+                // Recolha dos minerais
                 for (let i = sceneElements.minerals.length - 1; i >= 0; i--) {
                     const mineral = sceneElements.minerals[i];
                     if (!mineral || mineral.userData.collected) {
@@ -738,7 +680,8 @@
                     mineral.rotation.x += 0.01;
                     mineral.rotation.y += 0.02;
 
-                    if (cube.position.distanceTo(mineral.position) < mineralData.collectionDistance) {
+                    // Quando apanha um mineral, marca-o como recolhido, remove-o da cena e incrementa o contador
+                    if (carro.position.distanceTo(mineral.position) < mineralData.collectionDistance) {
                         mineral.userData.collected = true;
                         sceneElements.sceneGraph.remove(mineral);
                         sceneElements.minerals.splice(i, 1);
@@ -747,7 +690,6 @@
                     }
                 }
 
-            // Rendering
             helper.render(sceneElements);
 
             requestAnimationFrame(computeFrame);
@@ -760,7 +702,6 @@
             requestAnimationFrame(computeFrame);
         }
 
-        // HANDLING EVENTS
 
         window.addEventListener('resize', resizeWindow);
 
@@ -816,6 +757,7 @@
             }
         }
 
+        // Função para trocar a câmara
         function toggleCamera() {
             sceneElements.cameraMode = (sceneElements.cameraMode + 1) % 3;
 
@@ -845,7 +787,7 @@
             }
         }
 
-        // Update render image size and camera aspect when the window is resized
+        // Ajustar ao tamanho da janela
         function resizeWindow(eventParam) {
             const width = window.innerWidth;
             const height = window.innerHeight;
@@ -865,30 +807,21 @@
 
             sceneElements.renderer.setSize(width, height);
 
-            // Comment when doing animation
             computeFrame(sceneElements);
         }
 
-   
-
-        // ==========================================
-        // LÓGICA DO MENU DE CONTROLOS
-        // ==========================================
+        // Menu de controlos
         const btnControlos = document.getElementById('btnControlos');
         const btnFechar = document.getElementById('btnFechar');
         const menuControlos = document.getElementById('menuControlos');
 
-        // Abre o menu
         btnControlos.addEventListener('click', () => {
             menuControlos.classList.remove('escondido');
         });
 
-        // Fecha o menu
         btnFechar.addEventListener('click', () => {
             menuControlos.classList.add('escondido');
         });
-
-        // STARTING
 
         init();
  
